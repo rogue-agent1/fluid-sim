@@ -1,11 +1,13 @@
-# fluid-sim
+# Fluid Sim
 
-2D fluid simulation using Navier-Stokes (ASCII visualization)
+Simple 2D fluid simulation (Lattice Boltzmann Method lite).
 
 ## Usage
 
 ```bash
-python3 fluid_sim.py --help
+python3 fluid_sim.py
 ```
 
-Zero dependencies. Python 3.8+.
+## License
+
+MIT
