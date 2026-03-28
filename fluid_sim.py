@@ -1,66 +1,81 @@
 #!/usr/bin/env python3
-"""Fluid simulation — simplified 2D Navier-Stokes (Stam's stable fluids)."""
-import sys, os, time
+"""fluid_sim - 2D fluid simulation."""
+import argparse, math, sys, time
 
 class Fluid:
-    def __init__(self, n=40, diff=0.0001, visc=0.0001, dt=0.1):
-        self.n = n; self.diff = diff; self.visc = visc; self.dt = dt
-        s = (n+2)**2
-        self.d = [0.0]*s; self.d0 = [0.0]*s
-        self.u = [0.0]*s; self.v = [0.0]*s
-        self.u0 = [0.0]*s; self.v0 = [0.0]*s
-    def ix(self, x, y): return x + (self.n+2)*y
+    def __init__(self, w, h, visc=0.0001, diff=0.0001):
+        self.w, self.h = w, h; self.visc = visc; self.diff = diff
+        self.density = [[0.0]*w for _ in range(h)]
+        self.vx = [[0.0]*w for _ in range(h)]
+        self.vy = [[0.0]*w for _ in range(h)]
+
     def add_density(self, x, y, amount):
-        self.d[self.ix(x, y)] += amount
-    def add_velocity(self, x, y, vx, vy):
-        self.u[self.ix(x, y)] += vx; self.v[self.ix(x, y)] += vy
-    def _diffuse(self, b, x, x0, diff):
-        n = self.n; a = self.dt * diff * n * n
-        for _ in range(20):
-            for j in range(1, n+1):
-                for i in range(1, n+1):
-                    x[self.ix(i,j)] = (x0[self.ix(i,j)] + a*(
-                        x[self.ix(i-1,j)]+x[self.ix(i+1,j)]+
-                        x[self.ix(i,j-1)]+x[self.ix(i,j+1)])) / (1+4*a)
-    def _advect(self, b, d, d0, u, v):
-        n = self.n; dt0 = self.dt * n
-        for j in range(1, n+1):
-            for i in range(1, n+1):
-                x = i - dt0*u[self.ix(i,j)]; y = j - dt0*v[self.ix(i,j)]
-                x = max(0.5, min(n+0.5, x)); y = max(0.5, min(n+0.5, y))
-                i0, j0 = int(x), int(y); i1, j1 = i0+1, j0+1
-                s1, s0 = x-i0, 1-(x-i0); t1, t0 = y-j0, 1-(y-j0)
-                d[self.ix(i,j)] = (s0*(t0*d0[self.ix(i0,j0)]+t1*d0[self.ix(i0,j1)])+
-                                   s1*(t0*d0[self.ix(i1,j0)]+t1*d0[self.ix(i1,j1)]))
-    def step(self):
-        self._diffuse(0, self.d0, self.d, self.diff)
-        self._advect(0, self.d, self.d0, self.u, self.v)
+        if 0<=x<self.w and 0<=y<self.h: self.density[y][x] += amount
+
+    def add_velocity(self, x, y, ax, ay):
+        if 0<=x<self.w and 0<=y<self.h: self.vx[y][x] += ax; self.vy[y][x] += ay
+
+    def diffuse(self, grid, diff, dt):
+        a = dt * diff * self.w * self.h
+        new = [[0.0]*self.w for _ in range(self.h)]
+        for _ in range(4):
+            for y in range(1, self.h-1):
+                for x in range(1, self.w-1):
+                    new[y][x] = (grid[y][x] + a*(new[y-1][x]+new[y+1][x]+new[y][x-1]+new[y][x+1]))/(1+4*a)
+        return new
+
+    def advect(self, grid, vx, vy, dt):
+        new = [[0.0]*self.w for _ in range(self.h)]
+        for y in range(1, self.h-1):
+            for x in range(1, self.w-1):
+                sx = x - dt*self.w*vx[y][x]
+                sy = y - dt*self.h*vy[y][x]
+                sx = max(0.5, min(self.w-1.5, sx))
+                sy = max(0.5, min(self.h-1.5, sy))
+                i0, j0 = int(sx), int(sy)
+                s1, t1 = sx-i0, sy-j0
+                s0, t0 = 1-s1, 1-t1
+                new[y][x] = (s0*(t0*grid[j0][i0]+t1*grid[j0+1][i0]) + s1*(t0*grid[j0][i0+1]+t1*grid[j0+1][i0+1]))
+        return new
+
+    def step(self, dt=0.1):
+        self.vx = self.diffuse(self.vx, self.visc, dt)
+        self.vy = self.diffuse(self.vy, self.visc, dt)
+        self.vx = self.advect(self.vx, self.vx, self.vy, dt)
+        self.vy = self.advect(self.vy, self.vx, self.vy, dt)
+        self.density = self.diffuse(self.density, self.diff, dt)
+        self.density = self.advect(self.density, self.vx, self.vy, dt)
+
     def render(self):
         chars = " ░▒▓█"
         lines = []
-        for j in range(1, self.n+1):
-            row = ""
-            for i in range(1, self.n+1):
-                v = min(1, max(0, self.d[self.ix(i, j)]))
-                row += chars[min(len(chars)-1, int(v * len(chars)))]
-            lines.append(row)
+        for row in self.density:
+            line = ""
+            for v in row:
+                ci = min(len(chars)-1, int(min(1, v) * (len(chars)-1)))
+                line += chars[ci]
+            lines.append(line)
         return "\n".join(lines)
 
-if __name__ == "__main__":
-    n = int(sys.argv[1]) if len(sys.argv) > 1 else 40
-    steps = int(sys.argv[2]) if len(sys.argv) > 2 else 30
-    f = Fluid(n)
-    mid = n // 2
-    for dy in range(-3, 4):
-        for dx in range(-3, 4):
-            f.add_density(mid+dx, mid+dy, 2.0)
-    f.add_velocity(mid, mid, 5.0, 3.0)
-    for i in range(steps):
-        os.system("clear" if os.name != "nt" else "cls")
-        print(f"Fluid sim: step {i+1}/{steps}")
+def main():
+    p = argparse.ArgumentParser(description="2D fluid simulation")
+    p.add_argument("-W","--width", type=int, default=60)
+    p.add_argument("-H","--height", type=int, default=30)
+    p.add_argument("-s","--steps", type=int, default=50)
+    a = p.parse_args()
+    f = Fluid(a.width, a.height)
+    cx, cy = a.width//2, a.height//2
+    for dy in range(-2,3):
+        for dx in range(-2,3):
+            f.add_density(cx+dx, cy+dy, 1.0)
+    f.add_velocity(cx, cy, 5.0, 2.0)
+    for s in range(a.steps):
+        sys.stdout.write(f"\033[2J\033[HFluid step {s}\n")
         print(f.render())
-        f.step()
-        if i < steps - 1:
-            f.add_density(mid, n//4, 0.5)
-            f.add_velocity(mid, n//4, 0.5, 1.0)
+        f.step(0.1)
+        if s < 10:
+            f.add_density(cx, cy, 0.5)
+            f.add_velocity(cx, cy, 2.0*math.sin(s*0.5), 1.0*math.cos(s*0.3))
         time.sleep(0.1)
+
+if __name__ == "__main__": main()
