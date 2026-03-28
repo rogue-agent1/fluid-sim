@@ -1,11 +1,11 @@
-# Fluid Sim
+# fluid_sim
 
-Simple 2D fluid simulation (Lattice Boltzmann Method lite).
+Simple fluid simulation — diffusion on 1D grid
 
 ## Usage
 
 ```bash
-python3 fluid_sim.py
+python3 fluid_sim.py --help
 ```
 
 ## License

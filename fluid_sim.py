@@ -1,27 +1,19 @@
 #!/usr/bin/env python3
-"""Simple 2D fluid simulation (Lattice Boltzmann Method lite)."""
-import math
-def diffuse(grid,nx,ny,diff,dt):
-    a=dt*diff*nx*ny;new=[[0.0]*ny for _ in range(nx)]
-    for _ in range(20):
-        for i in range(1,nx-1):
-            for j in range(1,ny-1):
-                new[i][j]=(grid[i][j]+a*(new[i-1][j]+new[i+1][j]+new[i][j-1]+new[i][j+1]))/(1+4*a)
-    return new
-def advect(grid,vx,vy,nx,ny,dt):
-    new=[[0.0]*ny for _ in range(nx)]
-    for i in range(1,nx-1):
-        for j in range(1,ny-1):
-            x=i-dt*nx*vx[i][j];y=j-dt*ny*vy[i][j]
-            x=max(0.5,min(nx-1.5,x));y=max(0.5,min(ny-1.5,y))
-            i0=int(x);j0=int(y);s1=x-i0;s0=1-s1;t1=y-j0;t0=1-t1
-            new[i][j]=s0*(t0*grid[i0][j0]+t1*grid[i0][min(j0+1,ny-1)])+s1*(t0*grid[min(i0+1,nx-1)][j0]+t1*grid[min(i0+1,nx-1)][min(j0+1,ny-1)])
-    return new
-if __name__=="__main__":
-    nx=ny=32;density=[[0.0]*ny for _ in range(nx)]
-    for i in range(12,20):
-        for j in range(12,20): density[i][j]=1.0
-    density=diffuse(density,nx,ny,0.1,0.1)
-    total=sum(sum(row) for row in density)
-    print(f"Fluid sim: {nx}x{ny} grid, total density={total:.2f}")
-    print("Fluid sim OK")
+"""1D fluid diffusion simulation with ASCII visualization."""
+import sys, time
+def simulate(n=60, steps=100, diff=0.2):
+    u=[0.0]*n; u[n//2]=10.0
+    for step in range(steps):
+        new=[0.0]*n
+        for i in range(1,n-1):
+            new[i]=u[i]+diff*(u[i-1]-2*u[i]+u[i+1])
+        new[0]=new[1]; new[-1]=new[-2]; u=new
+        h=10; mx=max(max(u),0.01)
+        print(f"\033[2J\033[HStep {step}, max={mx:.3f}")
+        for row in range(h,-1,-1):
+            threshold=row/h*mx
+            print("".join("█" if u[i]>=threshold else " " for i in range(n)))
+        time.sleep(0.05)
+def cli():
+    simulate(steps=int(sys.argv[1]) if len(sys.argv)>1 else 80)
+if __name__=="__main__": cli()
