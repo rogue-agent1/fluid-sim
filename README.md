@@ -1,9 +1,11 @@
 # fluid-sim
 
-Simple 2D fluid simulation (Navier-Stokes lite). Zero-dependency, single-file Python CLI.
+Simple 2D fluid simulation (Euler grid-based).
 
 ## Usage
 
 ```bash
-python3 fluid_sim.py --help
+python3 fluid_sim.py test
 ```
+
+Zero dependencies. Python 3.8+.
