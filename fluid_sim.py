@@ -1,44 +1,23 @@
 #!/usr/bin/env python3
-"""Simplified 2D fluid simulation using Jos Stam's stable fluids."""
-import sys
-
-class FluidSim:
-    def __init__(self, n=20, diff=0.0001, visc=0.0001, dt=0.1):
-        self.n, self.diff, self.visc, self.dt = n, diff, visc, dt
-        s = (n+2)**2
-        self.u = [0.0]*s; self.v = [0.0]*s; self.dens = [0.0]*s
-    def _ix(self, x, y): return x + (self.n+2)*y
-    def _diffuse(self, x, x0, diff):
-        a = self.dt * diff * self.n * self.n; n = self.n
-        for _ in range(20):
-            for j in range(1, n+1):
-                for i in range(1, n+1):
-                    idx = self._ix(i,j)
-                    x[idx] = (x0[idx]+a*(x[self._ix(i-1,j)]+x[self._ix(i+1,j)]+x[self._ix(i,j-1)]+x[self._ix(i,j+1)]))/(1+4*a)
-    def add_source(self, x, y, amount):
-        self.dens[self._ix(x,y)] += amount
-    def add_velocity(self, x, y, vx, vy):
-        self.u[self._ix(x,y)] += vx; self.v[self._ix(x,y)] += vy
-    def step(self):
-        u0 = self.u[:]; v0 = self.v[:]; d0 = self.dens[:]
-        self._diffuse(self.u, u0, self.visc)
-        self._diffuse(self.v, v0, self.visc)
-        self._diffuse(self.dens, d0, self.diff)
-    def display(self):
-        chars = " ·░▒▓█"; n = self.n
-        for j in range(1, n+1):
-            row = ""
-            for i in range(1, n+1):
-                d = min(self.dens[self._ix(i,j)], 5)
-                row += chars[int(d)]
-            print(row)
-
+"""fluid_sim - 1D Euler fluid sim."""
+import sys,argparse,json,math
+def simulate(n=100,steps=200,dt=0.01):
+    rho=[1.0]*n;vel=[0.0]*n;pressure=[1.0]*n
+    for i in range(n//3,2*n//3):rho[i]=2.0;pressure[i]=2.0
+    snapshots=[]
+    for step in range(steps):
+        new_rho=rho[:];new_vel=vel[:];new_p=pressure[:]
+        for i in range(1,n-1):
+            new_rho[i]=rho[i]-dt*(rho[i]*(vel[i+1]-vel[i-1])/(2*dt*10)+vel[i]*(rho[i+1]-rho[i-1])/(2*dt*10))
+            new_vel[i]=vel[i]-dt*(vel[i]*(vel[i+1]-vel[i-1])/(2*dt*10)+(pressure[i+1]-pressure[i-1])/(2*dt*10*rho[i]))
+            new_p[i]=new_rho[i]
+        rho,vel,pressure=new_rho,new_vel,new_p
+        if step%(steps//5)==0:snapshots.append({"step":step,"density":[round(r,3) for r in rho[::5]]})
+    return snapshots
 def main():
-    sim = FluidSim(20)
-    sim.add_source(10, 10, 5); sim.add_velocity(10, 10, 2, 1)
-    sim.add_source(10, 11, 5); sim.add_source(11, 10, 5)
-    for _ in range(50): sim.step()
-    print("Fluid density after 50 steps:")
-    sim.display()
-
-if __name__ == "__main__": main()
+    p=argparse.ArgumentParser(description="Fluid sim")
+    p.add_argument("--points",type=int,default=100);p.add_argument("--steps",type=int,default=100)
+    args=p.parse_args()
+    snaps=simulate(args.points,args.steps)
+    print(json.dumps({"points":args.points,"steps":args.steps,"snapshots":snaps},indent=2))
+if __name__=="__main__":main()

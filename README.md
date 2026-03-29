@@ -1,9 +1,14 @@
-# Fluid Simulation (Navier-Stokes)
+# fluid-sim
 
-Fluid Simulation (Navier-Stokes) — zero-dependency Python implementation.
+Simple 1D fluid dynamics simulation
 
 ## Usage
 
 ```bash
-python3 fluid_sim.py
+python3 fluid_sim.py --help
 ```
+
+## Features
+
+- Zero dependencies (Python 3.8+)
+- Single file implementation
