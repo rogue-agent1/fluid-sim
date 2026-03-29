@@ -1,11 +1,17 @@
-# fluid-sim
+# fluid_sim
 
-Simple 2D fluid simulation (Euler grid-based).
+Simple 1D fluid simulation (shallow water equations)
+
+Single-file, zero-dependency Python CLI tool.
 
 ## Usage
 
 ```bash
-python3 fluid_sim.py test
+python fluid_sim.py --help
 ```
 
-Zero dependencies. Python 3.8+.
+## Test
+
+```bash
+python -c "import fluid_sim; fluid_sim.test()"
+```
