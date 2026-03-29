@@ -1,66 +1,62 @@
 #!/usr/bin/env python3
-"""Simple 1D shallow water simulation."""
-import math
+"""Simple 2D fluid simulation (lattice gas). Zero dependencies."""
+import random, sys
 
-class ShallowWater:
-    def __init__(self, n=100, dx=1.0, g=9.81):
-        self.n = n; self.dx = dx; self.g = g
-        self.h = [1.0] * n  # water height
-        self.u = [0.0] * n  # velocity
+class FluidGrid:
+    def __init__(self, width, height):
+        self.w, self.h = width, height
+        self.density = [[0.0]*width for _ in range(height)]
+        self.vx = [[0.0]*width for _ in range(height)]
+        self.vy = [[0.0]*width for _ in range(height)]
 
-    def init_dam_break(self, split=None):
-        if split is None: split = self.n // 2
-        for i in range(split):
-            self.h[i] = 2.0
+    def add_source(self, x, y, amount, radius=3):
+        for dy in range(-radius, radius+1):
+            for dx in range(-radius, radius+1):
+                nx, ny = x+dx, y+dy
+                if 0 <= nx < self.w and 0 <= ny < self.h:
+                    d = (dx*dx + dy*dy)**0.5
+                    if d <= radius:
+                        self.density[ny][nx] += amount * (1 - d/radius)
 
-    def init_wave(self, center=None, amplitude=0.5, width=5):
-        if center is None: center = self.n // 2
-        for i in range(self.n):
-            self.h[i] = 1.0 + amplitude * math.exp(-((i - center) / width) ** 2)
+    def step(self, dt=0.1, diffusion=0.1):
+        new_d = [[0.0]*self.w for _ in range(self.h)]
+        new_vx = [[0.0]*self.w for _ in range(self.h)]
+        new_vy = [[0.0]*self.w for _ in range(self.h)]
+        for y in range(1, self.h-1):
+            for x in range(1, self.w-1):
+                # Diffusion
+                lap = (self.density[y-1][x] + self.density[y+1][x] +
+                       self.density[y][x-1] + self.density[y][x+1] - 4*self.density[y][x])
+                new_d[y][x] = self.density[y][x] + diffusion * lap * dt
+                # Advection (simple)
+                sx = x - self.vx[y][x] * dt
+                sy = y - self.vy[y][x] * dt
+                sx = max(0.5, min(self.w-1.5, sx))
+                sy = max(0.5, min(self.h-1.5, sy))
+                i0, j0 = int(sx), int(sy)
+                sf, tf = sx-i0, sy-j0
+                if i0+1 < self.w and j0+1 < self.h:
+                    new_d[y][x] = (1-sf)*(1-tf)*self.density[j0][i0] + sf*(1-tf)*self.density[j0][i0+1] +                                   (1-sf)*tf*self.density[j0+1][i0] + sf*tf*self.density[j0+1][i0+1]
+        self.density = new_d
+        self.vx = new_vx
+        self.vy = new_vy
 
-    def step(self, dt):
-        h_new = self.h[:]
-        u_new = self.u[:]
-        for i in range(1, self.n - 1):
-            h_new[i] = self.h[i] - dt / self.dx * (
-                self.h[i] * (self.u[i+1] - self.u[i-1]) / 2 +
-                self.u[i] * (self.h[i+1] - self.h[i-1]) / 2)
-            u_new[i] = self.u[i] - dt / self.dx * (
-                self.u[i] * (self.u[i+1] - self.u[i-1]) / 2 +
-                self.g * (self.h[i+1] - self.h[i-1]) / 2)
-        # Reflective boundaries
-        h_new[0] = h_new[1]; h_new[-1] = h_new[-2]
-        u_new[0] = -u_new[1]; u_new[-1] = -u_new[-2]
-        self.h = h_new; self.u = u_new
-
-    def total_volume(self):
-        return sum(self.h) * self.dx
-
-    def max_height(self):
-        return max(self.h)
+    def to_ascii(self, chars=" .:-=+*#%@"):
+        mx = max(max(row) for row in self.density)
+        if mx <= 0: mx = 1
+        lines = []
+        for row in self.density:
+            line = ""
+            for v in row:
+                idx = int(v / mx * (len(chars)-1))
+                idx = max(0, min(len(chars)-1, idx))
+                line += chars[idx]
+            lines.append(line)
+        return "\n".join(lines)
 
 if __name__ == "__main__":
-    sw = ShallowWater(n=50)
-    sw.init_dam_break()
-    for _ in range(100):
-        sw.step(0.01)
-    print(f"Max height: {sw.max_height():.3f}")
-
-def test():
-    sw = ShallowWater(n=50, dx=1.0)
-    sw.init_dam_break()
-    v0 = sw.total_volume()
-    for _ in range(50):
-        sw.step(0.005)
-    # Volume roughly conserved
-    v1 = sw.total_volume()
-    assert abs(v1 - v0) / v0 < 0.1
-    # Wave init
-    sw2 = ShallowWater(n=50)
-    sw2.init_wave(amplitude=0.3)
-    assert sw2.max_height() > 1.0
+    g = FluidGrid(40, 20)
+    g.add_source(20, 10, 10, 5)
     for _ in range(20):
-        sw2.step(0.005)
-    # Wave should propagate
-    assert sw2.max_height() > 0.5
-    print("  fluid_sim: ALL TESTS PASSED")
+        g.step(0.1, 0.5)
+    print(g.to_ascii())

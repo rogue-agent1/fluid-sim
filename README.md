@@ -1,17 +1,9 @@
-# fluid_sim
+# fluid-sim
 
-Simple 1D fluid simulation (shallow water equations)
-
-Single-file, zero-dependency Python CLI tool.
+Simple 2D fluid simulation. Zero dependencies, single file, Python 3.8+.
 
 ## Usage
 
 ```bash
-python fluid_sim.py --help
-```
-
-## Test
-
-```bash
-python -c "import fluid_sim; fluid_sim.test()"
+python3 fluid_sim.py --help
 ```
