@@ -1,6 +1,6 @@
 # fluid-sim
 
-Simple 1D fluid dynamics simulation
+Simple Fluid Dynamics Simulation. Zero-dependency, single-file Python CLI.
 
 ## Usage
 
@@ -8,7 +8,6 @@ Simple 1D fluid dynamics simulation
 python3 fluid_sim.py --help
 ```
 
-## Features
+## License
 
-- Zero dependencies (Python 3.8+)
-- Single file implementation
+MIT

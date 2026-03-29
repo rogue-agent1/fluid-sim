@@ -1,23 +1,69 @@
 #!/usr/bin/env python3
-"""fluid_sim - 1D Euler fluid sim."""
-import sys,argparse,json,math
-def simulate(n=100,steps=200,dt=0.01):
-    rho=[1.0]*n;vel=[0.0]*n;pressure=[1.0]*n
-    for i in range(n//3,2*n//3):rho[i]=2.0;pressure[i]=2.0
-    snapshots=[]
-    for step in range(steps):
-        new_rho=rho[:];new_vel=vel[:];new_p=pressure[:]
-        for i in range(1,n-1):
-            new_rho[i]=rho[i]-dt*(rho[i]*(vel[i+1]-vel[i-1])/(2*dt*10)+vel[i]*(rho[i+1]-rho[i-1])/(2*dt*10))
-            new_vel[i]=vel[i]-dt*(vel[i]*(vel[i+1]-vel[i-1])/(2*dt*10)+(pressure[i+1]-pressure[i-1])/(2*dt*10*rho[i]))
-            new_p[i]=new_rho[i]
-        rho,vel,pressure=new_rho,new_vel,new_p
-        if step%(steps//5)==0:snapshots.append({"step":step,"density":[round(r,3) for r in rho[::5]]})
-    return snapshots
+"""Fluid Sim - Lattice gas automaton for simple fluid dynamics."""
+import sys, random
+
+def init_grid(w, h, density=0.3, seed=42):
+    random.seed(seed)
+    grid = [[0]*w for _ in range(h)]
+    for y in range(h):
+        for x in range(w):
+            if random.random() < density and y > 2 and y < h-3:
+                grid[y][x] = random.randint(1, 15)
+    for y in range(h):
+        grid[y][0] = 15; grid[y][w-1] = 15
+    for x in range(w):
+        grid[0][x] = 15; grid[h-1][x] = 15
+    for y in range(h//3, 2*h//3):
+        grid[y][w//3] = 15
+    return grid
+
+def step(grid):
+    h, w = len(grid), len(grid[0])
+    new = [[0]*w for _ in range(h)]
+    dirs = [(0,-1),(0,1),(-1,0),(1,0)]
+    for y in range(1, h-1):
+        for x in range(1, w-1):
+            v = grid[y][x]
+            if v == 15: new[y][x] = 15; continue
+            for bit, (dy, dx) in enumerate(dirs):
+                if v & (1 << bit):
+                    ny, nx = y+dy, x+dx
+                    if 0<=ny<h and 0<=nx<w and grid[ny][nx] != 15:
+                        new[ny][nx] |= (1 << bit)
+                    else:
+                        opp = bit ^ 1
+                        new[y][x] |= (1 << opp)
+    return new
+
+def render(grid):
+    chars = " ░▒▓█"
+    lines = []
+    for row in grid:
+        line = ""
+        for v in row:
+            if v == 15: line += "█"
+            else:
+                d = bin(v).count("1")
+                line += chars[min(d, len(chars)-1)]
+        lines.append(line)
+    return "\n".join(lines)
+
+def density_stats(grid):
+    total = 0; cells = 0
+    for row in grid:
+        for v in row:
+            if v != 15: total += bin(v).count("1"); cells += 1
+    return total / max(cells, 1)
+
 def main():
-    p=argparse.ArgumentParser(description="Fluid sim")
-    p.add_argument("--points",type=int,default=100);p.add_argument("--steps",type=int,default=100)
-    args=p.parse_args()
-    snaps=simulate(args.points,args.steps)
-    print(json.dumps({"points":args.points,"steps":args.steps,"snapshots":snaps},indent=2))
-if __name__=="__main__":main()
+    w, h = 50, 20
+    grid = init_grid(w, h, 0.4)
+    print(f"=== Fluid Simulation ({w}x{h}) ===\n")
+    for t in range(30):
+        grid = step(grid)
+        if t % 10 == 0:
+            print(f"Step {t} (density={density_stats(grid):.2f}):")
+            print(render(grid)); print()
+
+if __name__ == "__main__":
+    main()
