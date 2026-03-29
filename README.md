@@ -1,13 +1,9 @@
-# fluid_sim
+# Fluid Simulation (Navier-Stokes)
 
-Simple fluid simulation — diffusion on 1D grid
+Fluid Simulation (Navier-Stokes) — zero-dependency Python implementation.
 
 ## Usage
 
 ```bash
-python3 fluid_sim.py --help
+python3 fluid_sim.py
 ```
-
-## License
-
-MIT

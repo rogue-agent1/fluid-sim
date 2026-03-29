@@ -1,19 +1,44 @@
 #!/usr/bin/env python3
-"""1D fluid diffusion simulation with ASCII visualization."""
-import sys, time
-def simulate(n=60, steps=100, diff=0.2):
-    u=[0.0]*n; u[n//2]=10.0
-    for step in range(steps):
-        new=[0.0]*n
-        for i in range(1,n-1):
-            new[i]=u[i]+diff*(u[i-1]-2*u[i]+u[i+1])
-        new[0]=new[1]; new[-1]=new[-2]; u=new
-        h=10; mx=max(max(u),0.01)
-        print(f"\033[2J\033[HStep {step}, max={mx:.3f}")
-        for row in range(h,-1,-1):
-            threshold=row/h*mx
-            print("".join("█" if u[i]>=threshold else " " for i in range(n)))
-        time.sleep(0.05)
-def cli():
-    simulate(steps=int(sys.argv[1]) if len(sys.argv)>1 else 80)
-if __name__=="__main__": cli()
+"""Simplified 2D fluid simulation using Jos Stam's stable fluids."""
+import sys
+
+class FluidSim:
+    def __init__(self, n=20, diff=0.0001, visc=0.0001, dt=0.1):
+        self.n, self.diff, self.visc, self.dt = n, diff, visc, dt
+        s = (n+2)**2
+        self.u = [0.0]*s; self.v = [0.0]*s; self.dens = [0.0]*s
+    def _ix(self, x, y): return x + (self.n+2)*y
+    def _diffuse(self, x, x0, diff):
+        a = self.dt * diff * self.n * self.n; n = self.n
+        for _ in range(20):
+            for j in range(1, n+1):
+                for i in range(1, n+1):
+                    idx = self._ix(i,j)
+                    x[idx] = (x0[idx]+a*(x[self._ix(i-1,j)]+x[self._ix(i+1,j)]+x[self._ix(i,j-1)]+x[self._ix(i,j+1)]))/(1+4*a)
+    def add_source(self, x, y, amount):
+        self.dens[self._ix(x,y)] += amount
+    def add_velocity(self, x, y, vx, vy):
+        self.u[self._ix(x,y)] += vx; self.v[self._ix(x,y)] += vy
+    def step(self):
+        u0 = self.u[:]; v0 = self.v[:]; d0 = self.dens[:]
+        self._diffuse(self.u, u0, self.visc)
+        self._diffuse(self.v, v0, self.visc)
+        self._diffuse(self.dens, d0, self.diff)
+    def display(self):
+        chars = " ·░▒▓█"; n = self.n
+        for j in range(1, n+1):
+            row = ""
+            for i in range(1, n+1):
+                d = min(self.dens[self._ix(i,j)], 5)
+                row += chars[int(d)]
+            print(row)
+
+def main():
+    sim = FluidSim(20)
+    sim.add_source(10, 10, 5); sim.add_velocity(10, 10, 2, 1)
+    sim.add_source(10, 11, 5); sim.add_source(11, 10, 5)
+    for _ in range(50): sim.step()
+    print("Fluid density after 50 steps:")
+    sim.display()
+
+if __name__ == "__main__": main()
